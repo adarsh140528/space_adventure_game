@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Space Adventure — Dice Board Game</title>
+  <style>
+    :root{
+      --bg:#050d20;
+      --cell:#0b1624;
+      --accent:#7ee7ff;
+      --win:#ffd166;
+      --muted:#9fb7c7;
+    }
+    *{box-sizing:border-box;font-family:Inter,system-ui,sans-serif}
+    body{
+      margin:0;
+      background:url("assets/images/bg-space.jpg") no-repeat center/cover;
+      color:#e6f7ff;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:10px;
+    }
+    .app{
+      width:1200px;
+      max-width:100%;
+      display:grid;
+      grid-template-columns:1fr 350px;
+      gap:12px;
+      background:rgba(0,0,0,0.4);
+      padding:12px;
+      border-radius:10px;
+      box-shadow:0 8px 24px rgba(0,0,0,0.6);
+    }
+    .board{
+      display:grid;
+      grid-template-columns:repeat(10,1fr);
+      grid-template-rows:repeat(10,1fr);
+      width:800px;
+      height:800px;
+      gap:4px;
+      background:rgba(255,255,255,0.05);
+    }
+    .cell{
+      background:var(--cell);
+      border-radius:6px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      color:var(--muted);
+      font-size:10px;
+      overflow:hidden;
+    }
+    .cell img{
+      position:absolute;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      opacity:0.15;
+    }
+    .cell.start{background:linear-gradient(90deg,#18503a,#0b7a4b);color:#dfffe8;font-weight:700}
+    .cell.finish{background:linear-gradient(90deg,#1a2b4a,#003b6b);color:var(--win);font-weight:700}
+    .token{
+      position:absolute;
+      width:18px;height:18px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:10px;color:#020f20;font-weight:700;z-index:5;
+    }
+    .p1{background:#ffd166}
+    .p2{background:#7ee7ff}
+    .p3{background:#ff7eb6}
+    .p4{background:#b2ff9e}
+    .sidebar{
+      background:rgba(0,0,0,0.5);
+      padding:10px;
+      border-radius:8px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    button{
+      background:linear-gradient(180deg,#0d3b57,#08324a);
+      color:var(--accent);
+      border:0;
+      padding:8px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      box-shadow:0 4px 12px rgba(2,6,23,0.6);
+    }
+    .dice{
+      width:60px;height:60px;
+      background:linear-gradient(180deg,#0a2234,#052033);
+      display:flex;align-items:center;justify-content:center;
+      font-size:24px;border-radius:8px;
+      box-shadow:inset 0 -4px 10px rgba(0,0,0,0.4);
+    }
+    .log{
+      background:rgba(0,0,0,0.4);
+      height:200px;
+      overflow:auto;
+      padding:6px;
+      border-radius:6px;
+      font-size:12px;
+      color:var(--muted);
+    }
+    .event-card{
+      position:fixed;
+      top:50%;left:50%;
+      transform:translate(-50%,-50%);
+      background:#04121f;
+      padding:20px;border-radius:12px;
+      box-shadow:0 0 30px rgba(0,255,255,0.3);
+      text-align:center;
+      display:none;z-index:1000;
+    }
+    .event-card img{width:100px;height:100px;object-fit:contain;margin-bottom:10px}
+    .event-card h2{color:var(--accent)}
+    .event-tile{animation:pulse 3s infinite alternate}
+    @keyframes pulse{
+      from{box-shadow:0 0 10px rgba(0,255,255,0.3);}
+      to{box-shadow:0 0 25px rgba(0,255,255,0.7);}
+    }
+    @media(max-width:1000px){
+      .app{grid-template-columns:1fr;}
+      .board{width:100%;height:auto;aspect-ratio:1/1;}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div><div class="board" id="board"></div></div>
+    <div class="sidebar">
+      <div style="display:flex;gap:10px;align-items:center">
+        <select id="players">
+          <option value="2">2 Players</option>
+          <option value="3">3 Players</option>
+          <option value="4">4 Players</option>
+        </select>
+        <button id="newGameBtn">New Game</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="dice" id="dice">—</div>
+        <button id="roll">Roll Dice</button>
+      </div>
+      <div id="status"></div>
+      <button id="toggleMusic">🔊 Toggle Music</button>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <div class="event-card" id="eventCard">
+    <img id="eventImg" src="" alt="event">
+    <h2 id="eventName"></h2>
+    <p id="eventDesc"></p>
+  </div>
+
+  <audio id="bgm" src="assets/sounds/bgm.wav" loop autoplay muted></audio>
+  <audio id="rollSound" src="assets/sounds/roll.wav"></audio>
+  <audio id="moveSound" src="assets/sounds/move.wav"></audio>
+  <audio id="eventSound" src="assets/sounds/event.wav"></audio>
+
+  <script>
+    const board=document.getElementById('board');
+    const log=document.getElementById('log');
+    const dice=document.getElementById('dice');
+    const playersSel=document.getElementById('players');
+    const rollBtn=document.getElementById('roll');
+    const bgm=document.getElementById('bgm');
+    const rollSound=document.getElementById('rollSound');
+    const moveSound=document.getElementById('moveSound');
+    const eventSound=document.getElementById('eventSound');
+    const card=document.getElementById('eventCard');
+    const cardImg=document.getElementById('eventImg');
+    const cardName=document.getElementById('eventName');
+    const cardDesc=document.getElementById('eventDesc');
+    const toggleMusic=document.getElementById('toggleMusic');
+
+    toggleMusic.onclick=()=>{bgm.muted=!bgm.muted;};
+
+    const IMAGES=[
+      "assets/images/asteroid.png","assets/images/wormhole.png","assets/images/alien.png",
+      "assets/images/fuel.png","assets/images/flare.png","assets/images/meteor.png",
+      "assets/images/comet.png","assets/images/pirate.png","assets/images/wreck.png",
+      "assets/images/gravity.png"
+    ];
+
+    const EVENTS=[
+      {name:'Asteroid Field',desc:'Go back 5!',img:'assets/images/asteroid.png',color:'#ff595e',fn:p=>movePlayer(p,-5)},
+      {name:'Wormhole',desc:'Jump forward 10!',img:'assets/images/wormhole.png',color:'#00b4d8',fn:p=>movePlayer(p,10)},
+      {name:'Alien Encounter',desc:'Lose a turn!',img:'assets/images/alien.png',color:'#9b5de5',fn:p=>p.skip=true},
+      {name:'Fuel Station',desc:'Extra roll!',img:'assets/images/fuel.png',color:'#ffca3a',fn:p=>p.extra=true},
+      {name:'Solar Flare',desc:'Everyone move back 3!',img:'assets/images/flare.png',color:'#ff8500',fn:p=>game.players.forEach(pl=>movePlayer(pl,-3))},
+      {name:'Meteor Boost',desc:'Fly ahead 15!',img:'assets/images/meteor.png',color:'#6a994e',fn:p=>movePlayer(p,15)},
+      {name:'Comet Ride',desc:'Ride forward 20!',img:'assets/images/comet.png',color:'#06d6a0',fn:p=>movePlayer(p,20)},
+      {name:'Space Pirates',desc:'Back to Start!',img:'assets/images/pirate.png',color:'#ef233c',fn:p=>p.pos=0},
+      {name:'Wreckage Zone',desc:'Skip next turn',img:'assets/images/wreck.png',color:'#bdb2ff',fn:p=>p.skip=true},
+      {name:'Gravity Well',desc:'Move back 10!',img:'assets/images/gravity.png',color:'#577590',fn:p=>movePlayer(p,-10)}
+    ];
+
+    const EVENT_POS=[5,12,20,28,35,45,52,63,74,88];
+    let game={players:[],turn:0};
+
+    for(let i=0;i<100;i++){
+      const c=document.createElement('div');
+      c.className='cell';
+      c.dataset.idx=i;
+      if(i===0){c.classList.add('start');c.textContent='Launch';}
+      else if(i===99){c.classList.add('finish');c.textContent='Planet X';}
+      else{
+        const eIndex=EVENT_POS.indexOf(i);
+        if(eIndex>=0){
+          const ev=EVENTS[eIndex];
+          c.classList.add('event-tile');
+          c.style.boxShadow=`0 0 10px ${ev.color}`;
+          const img=document.createElement('img');
+          img.src=ev.img;c.appendChild(img);
+          const span=document.createElement('span');
+          span.textContent=ev.name;span.style.fontSize='8px';span.style.zIndex=2;
+          c.title=ev.desc;
+          c.appendChild(span);
+        }else{
+          c.textContent=i+1;
+        }
+      }
+      board.appendChild(c);
+    }
+
+    function initGame(){
+      const n=parseInt(playersSel.value);
+      const colors=['p1','p2','p3','p4'];
+      game.players=[];
+      for(let i=0;i<n;i++)
+        game.players.push({id:i+1,name:`Player ${i+1}`,pos:0,color:colors[i],skip:false});
+      game.turn=0;
+      renderTokens();
+      log.innerHTML='';
+      logMsg('Game started.');
+      updateStatus();
+    }
+
+    function renderTokens(){
+      document.querySelectorAll('.token').forEach(t=>t.remove());
+      game.players.forEach(p=>{
+        const cell=document.querySelector(`.cell[data-idx='${p.pos}']`);
+        if(cell){
+          const t=document.createElement('div');
+          t.className='token '+p.color;
+          t.textContent=p.id;
+          cell.appendChild(t);
+        }
+      });
+    }
+
+    function logMsg(m){log.innerHTML+='<div>'+m+'</div>';log.scrollTop=log.scrollHeight;}
+    function rollDice(){rollSound.play();return Math.floor(Math.random()*6)+1;}
+    function movePlayer(p,steps){moveSound.play();p.pos+=steps;if(p.pos>99)p.pos=99;if(p.pos<0)p.pos=0;renderTokens();}
+    function nextTurn(){game.turn=(game.turn+1)%game.players.length;updateStatus();}
+    function updateStatus(){document.getElementById('status').textContent=`${game.players[game.turn].name}'s turn`;}
+
+    function showEventCard(ev){
+      cardImg.src=ev.img;cardName.textContent=ev.name;cardDesc.textContent=ev.desc;
+      card.style.display='block';eventSound.play();
+      setTimeout(()=>{card.style.display='none';},2500);
+    }
+
+    rollBtn.onclick=()=>{
+      const cur=game.players[game.turn];
+      if(cur.skip){cur.skip=false;logMsg(`${cur.name} skipped turn.`);nextTurn();return;}
+      const val=rollDice();
+      dice.textContent=val;logMsg(`${cur.name} rolled ${val}`);
+      movePlayer(cur,val);
+      if(cur.pos>=99){logMsg(`${cur.name} reached Planet X! 🎉`);alert(cur.name+' wins!');return;}
+      const eIndex=EVENT_POS.indexOf(cur.pos);
+      if(eIndex>=0){
+        const ev=EVENTS[eIndex];
+        showEventCard(ev);logMsg(`${cur.name}: ${ev.name} → ${ev.desc}`);ev.fn(cur);
+      }
+      renderTokens();
+      nextTurn();
+    };
+
+    document.getElementById('newGameBtn').onclick=()=>{initGame();bgm.play();bgm.muted=false;};
+    initGame();
+  </script>
+</body>
+</html>
